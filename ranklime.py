@@ -61,7 +61,7 @@ def listnet_loss(y_true, y_pred):
     loss = - np.sum(P_y_i * np.log(P_z_i + epsilon))
     
     
-    print(loss)
+    #print(loss)
     return loss
 
 class RankLIME:
@@ -196,15 +196,16 @@ class RankLIME:
         
         if np.sum(sample_weights) == 0:
             sample_weights = np.repeat((1/samples.shape[1]), samples.shape[1])
-        print('sum of weights', np.sum(sample_weights))
         
-        param_grid = {'alpha':[1]}
+        #print('sum of weights', np.sum(sample_weights))
+        
+        param_grid = {'alpha': [1]}
         
         split_num = 2
-        
 
+        print(samples.shape, labels.shape, sample_weights.shape)
         
-        ridge_pairwise = GridSearchCV(Ridge(), param_grid, scoring=custom_loss, cv=split_num, verbose=3)
+        ridge_pairwise = GridSearchCV(Ridge(), param_grid, scoring=custom_loss, cv=split_num, verbose=0)
         ridge_pairwise.fit(samples, labels, sample_weight=sample_weights)
         exp = ridge_pairwise.best_estimator_.coef_
   
@@ -261,8 +262,6 @@ class RankLIME:
         labelss = []
         sample_weightss = []
         
-       
-        
         for k in range(sample_size):
             number_feat_selected = np.random.choice(np.arange(0, self.data.shape[1]), replace=False)
             feat_selected = np.random.choice(np.arange(0, self.data.shape[1]), number_feat_selected, replace=False)
@@ -293,13 +292,16 @@ class RankLIME:
             datas.append(d)
             labelss.append(labels)
         
-        
+        #print(sample_weightss)
         data = np.array(datas).reshape(-1, self.data.shape[1])
-        labels = np.array(labelss).flatten()
-        sample_weight = np.array(sample_weightss).flatten()
-                
-        exp = self.get_exp_vals(data, labels, sample_weight)
+        print(data.shape)
+        #labels = np.array(labelss).flatten()
+        #sample_weight = np.array(sample_weightss).flatten()
+        labels = np.array(labelss).reshape(-1, 1)
+        sample_weight = np.array(sample_weightss).reshape(-1, 1).flatten()
         
+        exp = self.get_exp_vals(data, labels, sample_weight)
+        print(exp)
         return exp
     
 if __name__ == '__main__':

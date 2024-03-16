@@ -111,12 +111,12 @@ class LIRME:
     def quantile_sampling(self, instance, num_samples=1000, sampling_type='quantile'):         
         # TODO: Add this for RankLIME
         
-        if sampling_type == 'rank_lime':
+        '''if sampling_type == 'rank_lime':
             #data = np.random.normal(0, 1, num_samples* num_cols).reshape(num_samples, num_cols)
             data = np.random.multivariate_normal(np.zeros(instance.shape[0]), self.cov, num_samples)
 
             data = np.array(data)
-            data = data * self.scaler.scale_ + instance
+            data = data * self.scaler.scale_ + instance'''
         
         #data_row = training_data[0]
         data_row = instance
@@ -201,6 +201,8 @@ class LIRME:
             #scaler = sklearn.preprocessing.StandardScaler(with_mean=False)
             #samples = scaler.fit_transform(samples)
             svr = SVR(kernel='linear')
+            #print('labels', labels)
+            #print('sample_weights', sample_weights)
             svr.fit(samples, labels, sample_weight=sample_weights)
             exp = svr.coef_.flatten()
             
@@ -218,12 +220,16 @@ class LIRME:
 
     def get_exp_labels(self, label_type, preds, original_preds, instance_idx, top_rank_k=5):
         top_k = len(original_preds) - 1 if len(original_preds) < top_rank_k else top_rank_k
+        #print('len(original_preds)', len(original_preds))
+        epsilon = 0.00002
         
         if label_type == 'regression':
             labels = preds            
         elif label_type == 'score': 
             max_pred = np.max(original_preds)
-            labels = 1 - ((max_pred -  preds) / max_pred)
+            #print('max_pred', max_pred)
+            labels = 1 - ((max_pred -  preds) / (max_pred + epsilon))
+            #print('components', max_pred -  preds, max_pred + epsilon)
         elif label_type == 'top_k_binary':
             old_rank = np.argsort(original_preds)[::-1]
             idx_rank = np.argwhere(old_rank == top_k).flatten()[0]
@@ -233,7 +239,7 @@ class LIRME:
             labels[label_idx] = 1
         
         elif label_type == 'top_k_rank':
-            old_rank = np.argsort(original_preds)[::-1]
+            '''old_rank = np.argsort(original_preds)[::-1]
             idx_ref_rank = np.argwhere(old_rank == top_k).flatten()
             ref_rank = old_rank[idx_ref_rank]
             labels = []
@@ -248,15 +254,23 @@ class LIRME:
                     labels.append(0)
                 else: 
                     labels.append(1 - (new_rank_instance/ top_k))
-            labels = np.array(labels) 
-            
+            labels = np.array(labels) '''
+            #print(top_k)
+            rank_preds = np.argsort(preds)[::-1]
+            labels = np.zeros(len(preds))
+            label_idx = np.argwhere(rank_preds > top_k).flatten()
+            for idx in label_idx:
+                labels[idx] = (1 - rank_preds[idx]) / top_k
+            labels = np.array(labels)
+
         return labels
            
     def explain(self, instance, pred_fun, query_doc_preds, sur_type='ridge', 
                 label_type='regression', instance_idx=None, top_rank=5, sample_size=1000, sampling_type='quantile'):
 
         data, inverse = self.quantile_sampling(instance, sample_size, sampling_type=sampling_type)
-        scaled_data = (data - self.scaler.mean_) / self.scaler.scale_
+        # Changed due to bug
+        scaled_data = (inverse - self.scaler.mean_) / self.scaler.scale_
         
         distances = pairwise_distances(
                 scaled_data,

@@ -9,7 +9,7 @@ import lightgbm
 from scipy.stats import rankdata
 from sklearn.preprocessing import normalize
 
-class Greedy:
+'''class Greedy:
     #def __init__(self, data, pred_fn):
         #per_query = data[:, 1:]
         #mask_values = np.mean(per_query, axis=0)
@@ -86,6 +86,66 @@ class Greedy:
         
         #g_exp = g_exp / np.sum(g_exp)
 
+        return g_exp'''
+
+
+class Greedy:
+    def find_con_pair(self, base_pred, new_pred, base_rank, new_rank):
+        epsilon = 1e-3
+        con_pairs = np.zeros_like(base_pred)
+        
+        for i in range(base_pred.shape[0] - 1):
+            for j in range(i + 1, base_pred.shape[0]):
+                condi = (base_pred[i] - new_pred[i] > base_pred[j] - new_pred[j])
+                if condi:
+                    w_p = new_rank[i] - base_rank[i] + new_rank[j] - base_rank[j]
+                    diff = new_pred[i] - base_pred[i] + new_pred[j] - base_pred[j]
+                    con_pairs[i] += diff * w_p
+                    con_pairs[j] += diff * w_p
+        
+        con_pairs = con_pairs / (np.linalg.norm(con_pairs) + epsilon)
+
+        return con_pairs
+
+    def get_score_rank(self, instance, feature_to_ex, pred_fn):
+        instance_copy = instance.copy()
+        instance_copy[:, feature_to_ex] = np.mean(instance_copy[:, feature_to_ex], axis=0)
+        new_pred = pred_fn(instance_copy)
+        new_rank = rankdata([-1 * i for i in new_pred]).astype(int)
+
+        return new_pred, new_rank 
+
+    def greedy_cover(self, instance, all_feat, pred_fn, exp_size=9):
+        selected = []
+        base_pred = pred_fn(instance)
+        base_rank = rankdata([-1 * i for i in base_pred]).astype(int)
+
+        exp = []
+        imp = []
+        
+        while len(selected) < exp_size:
+            u_vals = {}
+            for a_f in all_feat:
+                if a_f not in selected:
+                    new_pred, new_rank = self.get_score_rank(instance, a_f, pred_fn)
+                    c_p = self.find_con_pair(base_pred, new_pred, base_rank, new_rank)
+                    u_vals[a_f] = np.sum(c_p)
+
+            max_u_fea_id = max(u_vals, key=u_vals.get)
+            sel_f = max_u_fea_id
+            imp_val = u_vals[sel_f]
+
+            exp.append(sel_f)
+            imp.append(imp_val)
+            
+            base_pred, base_rank = self.get_score_rank(instance, sel_f, pred_fn)
+            selected.append(sel_f)
+
+        g_exp = np.zeros(instance.shape[1])
+
+        for j in exp:
+            g_exp[j] = imp[j]
+
         return g_exp
 
 if __name__ == "__main__":
@@ -135,7 +195,7 @@ if __name__ == "__main__":
     query_id = 0'''
     
     
-    greedy_exp = {}
+    '''greedy_exp = {}
     
     for dataset_name in ['mq2008', 'web10k', 'yahoo']:
         greedy_exp[dataset_name] = []
@@ -158,4 +218,4 @@ if __name__ == "__main__":
             
             greedy_exp[dataset_name].append(g_exp)
             
-    pickle.dump(greedy_exp, open( "./exp/save/query_greedy_score_v1.p", "wb" ) )
+    pickle.dump(greedy_exp, open( "./exp/save/query_greedy_score_v1.p", "wb" ) )'''
